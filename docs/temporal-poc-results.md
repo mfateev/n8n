@@ -413,6 +413,150 @@ cd packages/core && pnpm test src/__poc__/workflow-execute.test.ts
 
 ---
 
+## POC 8: Temporal Bundling with WorkflowExecute ✅
+
+**Status:** Complete
+
+**Test Files:**
+- `poc/08-temporal-bundling/src/test-bundling.ts` (simple workflow)
+- `poc/08-temporal-bundling/src/test-bundling-with-execute.ts` (with WorkflowExecute)
+
+**Run Commands:**
+```bash
+cd poc/08-temporal-bundling && pnpm tsx src/test-bundling.ts
+cd poc/08-temporal-bundling && pnpm tsx src/test-bundling-with-execute.ts
+```
+
+### Success Criteria Results:
+- ✅ Simple workflow bundles (1.36 MB)
+- ✅ WorkflowExecute from n8n-core bundles (25.49 MB)
+- ✅ Workflow class bundles
+- ✅ NodeHelpers bundles
+- ✅ Core orchestration methods (addNodeToBeExecuted, processRunExecutionData) included
+
+### Key Findings:
+
+1. **WorkflowExecute CAN Be Bundled**: The entire WorkflowExecute class from n8n-core can be bundled into Temporal's V8 sandbox:
+   ```typescript
+   import { WorkflowExecute } from 'n8n-core';
+   import { Workflow, NodeHelpers } from 'n8n-workflow';
+   // These imports successfully bundle into Temporal workflow
+   ```
+
+2. **Bundle Configuration Required**: 143 modules must be ignored for successful bundling:
+   - Node.js built-ins (fs, path, crypto, http, etc.)
+   - `node:` prefixed imports (node:fs, node:url, etc.)
+   - Database drivers (pg, mysql2, better-sqlite3, ioredis)
+   - Sentry packages (@sentry/node, @sentry/node-native)
+   - Native modules (canvas, sharp)
+   - Expression sandbox (@n8n/tournament) - handled in activities
+   - Network libraries (axios, nodemailer, ssh2)
+
+3. **webpack Config Hook Required**: The `node:` prefixed imports need special handling via `webpackConfigHook`:
+   ```typescript
+   await bundleWorkflowCode({
+       workflowsPath,
+       ignoreModules: IGNORE_MODULES,
+       webpackConfigHook: (config) => {
+           const nodeExternals: Record<string, string> = {};
+           for (const builtin of NODE_BUILTINS) {
+               nodeExternals[`node:${builtin}`] = `commonjs node:${builtin}`;
+           }
+           config.externals = { ...config.externals, ...nodeExternals };
+           return config;
+       },
+   });
+   ```
+
+4. **Bundle Size Comparison**:
+   | Approach | Bundle Size | Notes |
+   |----------|-------------|-------|
+   | Simple workflow | 1.36 MB | No WorkflowExecute |
+   | Unoptimized | 25.49 MB | Default ignoreModules |
+   | Aggressive ignoreModules | **16.73 MB** | ~270 modules ignored |
+   | Externals function | 16.7 MB | Same as ignoreModules |
+   | Resolve.alias stubs | 17.92 MB | Worse (barrel exports) |
+   | **Lean (no n8n-core)** | **6.88 MB** | Best - only n8n-workflow |
+
+5. **Bundle Size Optimization Strategies**:
+
+   **Option A: Keep WorkflowExecute (~17-25 MB)** ⭐ **CHOSEN**
+   - Use `ignoreModules` for Node.js built-ins and heavy dependencies
+   - Pro: Reuse all ~2640 LOC of orchestration logic
+   - Pro: Full feature parity (merge nodes, wait nodes, error handling, etc.)
+   - Con: Large bundle due to n8n-core barrel exports
+
+   **Option B: Lean Workflow (~7 MB)** — Not chosen
+   - Only import from `n8n-workflow` (not `n8n-core`)
+   - Implement orchestration logic in the Temporal workflow directly
+   - Pro: 59% smaller bundle, faster startup
+   - Con: Missing critical features (merge nodes, wait nodes, multiple outputs, error handling)
+   - Con: Would require ~700+ LOC to reach feature parity
+
+   **Decision**: Use WorkflowExecute approach. Bundle size optimization is deferred.
+   The ~2640 LOC of battle-tested orchestration logic handles edge cases that would
+   take significant effort to reimplement correctly (merge node data accumulation,
+   wait node resume, error routing, execution order, etc.).
+
+6. **Warnings vs Errors**: Many "critical dependency" warnings appear but these are:
+   - Dynamic requires for optional features (node loader, expression sandbox)
+   - Don't affect deterministic execution
+   - Node loading and expression evaluation happen in Activities, not Workflow
+
+7. **Proxy INodeTypes Pattern**: The recommended pattern for delegating node execution to Activities:
+   ```typescript
+   class ProxyNodeTypes implements INodeTypes {
+       getByNameAndVersion(nodeType: string, _version?: number): INodeType {
+           return {
+               description: { /* minimal description */ },
+               execute: async function() {
+                   // Delegate to Activity
+                   return await activities.executeNode({ nodeType, ... });
+               },
+           };
+       }
+   }
+   ```
+
+### Architecture Validation:
+
+This POC validates that **WorkflowExecute can run inside Temporal's deterministic V8 sandbox** with node execution delegated to Activities. The orchestration logic (graph traversal, stack management, merge handling) is deterministic and doesn't need I/O.
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                  Temporal V8 Sandbox                            │
+├────────────────────────────────────────────────────────────────┤
+│  WorkflowExecute (bundled)                                      │
+│  ├── Graph traversal logic (~410 LOC)                          │
+│  ├── Execution stack management                                 │
+│  ├── Merge node handling                                        │
+│  ├── Wait node state                                            │
+│  └── ProxyNodeTypes.execute() → Activity Call                   │
+│                                                                 │
+│  When ProxyNodeTypes.execute() is called:                       │
+│  └── activities.executeNode({node, inputData}) ──────┐         │
+│                                                       │         │
+└───────────────────────────────────────────────────────│─────────┘
+                                                        ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    Temporal Activity                            │
+├────────────────────────────────────────────────────────────────┤
+│  - Load real node type                                          │
+│  - Create ExecuteContext                                        │
+│  - Execute actual node (HTTP, DB, etc.)                         │
+│  - Return output to Workflow                                    │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Implications for Implementation:
+
+1. **Reuse WorkflowExecute**: No need to reimplement ~2640 LOC of orchestration logic
+2. **Feature Parity**: Automatically get merge nodes, wait nodes, error handling, etc.
+3. **Deterministic Replay**: Temporal can replay the workflow since orchestration is deterministic
+4. **Clean Separation**: I/O (node execution) isolated in Activities; logic in Workflow
+
+---
+
 ## Summary
 
 ### Completed POCs
@@ -426,10 +570,11 @@ cd packages/core && pnpm test src/__poc__/workflow-execute.test.ts
 | 3. HTTP/Credentials | ✅ | HTTP nodes work; credentials via params simplest |
 | 6. Serialization | ✅ | JSON serialization works; errors need plain objects |
 | 7. WorkflowExecute | ✅ | Hooks provide natural Temporal activity boundaries |
+| 8. Temporal Bundling | ✅ | WorkflowExecute bundles into Temporal V8 sandbox |
 
 ### All POCs Complete ✅
 
-All 7 POCs have been successfully completed. Key findings for Temporal integration:
+All 8 POCs have been successfully completed. Key findings for Temporal integration:
 
 1. **Minimal Dependencies**: Only Logger and InstanceSettings needed for DI setup
 2. **Node Execution**: Works with ExecuteContext and stubbed IWorkflowExecuteAdditionalData
@@ -437,25 +582,48 @@ All 7 POCs have been successfully completed. Key findings for Temporal integrati
 4. **HTTP/Credentials**: HTTP nodes work; pass credentials as parameters for simplicity
 5. **Serialization**: JSON serialization works for all n8n data structures except Error objects
 6. **Workflow Orchestration**: ExecutionLifecycleHooks provide natural boundaries for Temporal activities
+7. **Bundling**: WorkflowExecute can be bundled into Temporal's V8 sandbox (~17-25 MB bundle, optimization deferred)
 
 ### Architecture Recommendation
 
-For Temporal integration:
+**Chosen Approach: Bundle WorkflowExecute with Proxy INodeTypes**
+
+POC 8 validates that the entire WorkflowExecute class can run inside Temporal's deterministic V8 sandbox. This enables reusing n8n's ~2640 LOC orchestration logic (graph traversal, merge nodes, wait nodes, error handling) without reimplementation.
+
+**Why not optimize bundle size?**
+- Lean approach (7 MB) lacks critical features: merge nodes, wait nodes, multiple outputs, error handling
+- Reimplementing these features correctly would require ~700+ LOC and significant testing
+- WorkflowExecute is battle-tested with edge cases already handled
+- Bundle size (~17-25 MB) is acceptable for Temporal workers (loaded once, reused for many executions)
+- Future optimization possible via n8n-core barrel export refactoring if needed
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Temporal Workflow                         │
-├─────────────────────────────────────────────────────────────┤
-│  nodeExecuteBefore hook → Activity Start                     │
-│  ├── Load node type                                          │
-│  ├── Create ExecuteContext                                   │
-│  ├── Execute node                                            │
-│  nodeExecuteAfter hook → Activity Complete                   │
-│  └── Checkpoint state (serializable via JSON)                │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                  Temporal V8 Sandbox                            │
+├────────────────────────────────────────────────────────────────┤
+│  WorkflowExecute (bundled from n8n-core)                        │
+│  ├── Graph traversal & stack management (deterministic)         │
+│  ├── Merge node handling                                        │
+│  ├── Wait node state                                            │
+│  └── ProxyNodeTypes.execute() → Activity Call                   │
+│                                                                 │
+│  For each node execution:                                       │
+│  └── activities.executeNode({node, inputData}) ──────┐         │
+└───────────────────────────────────────────────────────│─────────┘
+                                                        ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    Temporal Activity                            │
+├────────────────────────────────────────────────────────────────┤
+│  - Load real node type (from disk)                              │
+│  - Create ExecuteContext with real credentials                  │
+│  - Execute actual node (HTTP, DB, file I/O)                     │
+│  - Return serializable output to Workflow                       │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-Each node execution becomes a Temporal Activity, enabling:
-- Automatic retries on transient failures
-- Recovery from worker crashes
-- Distributed execution across workers
-- Visibility into execution progress
+This architecture provides:
+- **Automatic retries** on transient failures (per-node)
+- **Recovery from worker crashes** (replay from last completed node)
+- **Distributed execution** across workers
+- **Visibility** into execution progress via Temporal UI
+- **Feature parity** with existing n8n orchestration

@@ -1,0 +1,29 @@
+{
+	"name": "poc-08-temporal-bundling",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "tsc",
+		"worker": "tsx src/worker.ts",
+		"client": "tsx src/client.ts",
+		"test": "tsx src/test-bundling.ts"
+	},
+	"dependencies": {
+		"@temporalio/client": "^1.11.7",
+		"@temporalio/worker": "^1.11.7",
+		"@temporalio/workflow": "^1.11.7",
+		"@temporalio/activity": "^1.11.7",
+		"@n8n/backend-common": "workspace:*",
+		"@n8n/di": "workspace:*",
+		"n8n-core": "workspace:*",
+		"n8n-workflow": "workspace:*",
+		"n8n-nodes-base": "workspace:*",
+		"jest-mock-extended": "^3.0.0"
+	},
+	"devDependencies": {
+		"tsx": "^4.7.0",
+		"typescript": "^5.7.0",
+		"@types/node": "^20.0.0"
+	}
+}
