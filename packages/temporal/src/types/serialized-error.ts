@@ -27,7 +27,7 @@ interface BaseSerializedError {
 export interface SerializedNodeApiError extends BaseSerializedError {
 	__type: 'NodeApiError';
 	node: INode;
-	httpCode?: string;
+	httpCode?: string | null;
 	level?: 'warning' | 'error';
 	functionality?: 'regular' | 'configuration-node';
 }
