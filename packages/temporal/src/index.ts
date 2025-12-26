@@ -24,3 +24,14 @@ export * from './nodes/loader';
 
 // Types
 export type * from './types';
+
+// Activities
+export * from './activities';
+
+// Worker utilities
+export * from './worker/context';
+
+// Utility functions
+export { buildAdditionalData } from './utils/additional-data';
+export { serializeError, deserializeError } from './utils/error-serializer';
+export { mergeWorkflowStepResult, getExecutedNodeNames } from './utils/state-merge';
