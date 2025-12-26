@@ -30,6 +30,7 @@ export * from './utils/state-merge';
 export * from './utils/error-serializer';
 export * from './utils/additional-data';
 export * from './utils/execution-data';
+export * from './utils/workflow-loader';
 
 // Activities
 export * from './activities';
