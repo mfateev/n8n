@@ -1,0 +1,22 @@
+{
+	"extends": [
+		"@n8n/typescript-config/tsconfig.common.json",
+		"@n8n/typescript-config/tsconfig.backend.json"
+	],
+	"compilerOptions": {
+		"lib": ["es2022"],
+		"rootDir": ".",
+		"baseUrl": "src",
+		"paths": {
+			"@/*": ["./*"],
+			"@test/*": ["../test/*"]
+		},
+		"tsBuildInfoFile": "dist/typecheck.tsbuildinfo",
+		"useUnknownInCatchVariables": false
+	},
+	"include": ["src/**/*.ts", "test/**/*.ts"],
+	"references": [
+		{ "path": "../workflow/tsconfig.build.esm.json" },
+		{ "path": "../core/tsconfig.build.json" }
+	]
+}
