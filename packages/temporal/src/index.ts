@@ -21,3 +21,6 @@ export * from './credentials/credential-types';
 // Node types
 export * from './nodes/node-types';
 export * from './nodes/loader';
+
+// Types
+export type * from './types';
