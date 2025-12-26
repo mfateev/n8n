@@ -25,13 +25,19 @@ export * from './nodes/loader';
 // Types
 export type * from './types';
 
+// Utilities
+export * from './utils/state-merge';
+export * from './utils/error-serializer';
+export * from './utils/additional-data';
+
 // Activities
 export * from './activities';
 
-// Worker utilities
-export * from './worker/context';
+// Worker
+export * from './worker';
 
-// Utility functions
-export { buildAdditionalData } from './utils/additional-data';
-export { serializeError, deserializeError } from './utils/error-serializer';
-export { mergeWorkflowStepResult, getExecutedNodeNames } from './utils/state-merge';
+// Data converter
+export * from './data-converter';
+
+// Note: Workflows are not exported here as they must be loaded via workflowsPath
+// by the Temporal worker due to V8 sandbox requirements
