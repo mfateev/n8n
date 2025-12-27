@@ -9,6 +9,8 @@
 
 import { Flags } from '@oclif/core';
 
+import { createTemporalClient } from '../../../connection/client';
+import type { ExecuteN8nWorkflowOutput } from '../../../types/workflow-types';
 import { BaseCommand } from '../base';
 
 // eslint-disable-next-line import-x/no-default-export -- oclif requires default exports for commands
@@ -41,13 +43,90 @@ export default class WorkflowResult extends BaseCommand {
 		const { flags } = await this.parse(WorkflowResult);
 		this.flags = flags;
 
+		// Load config
 		this.logVerbose(`Loading config from ${flags.config}`);
+		const config = await this.loadConfig(flags.config);
 
-		// Implementation will be added in Commit 6.8
-		this.logMessage('Workflow result command - implementation pending (Commit 6.8)');
-		this.logMessage(`Workflow ID: ${flags['workflow-id']}`);
-		if (flags.wait) {
-			this.logMessage('Will wait for workflow to complete');
+		// Create Temporal client
+		this.logVerbose(`Connecting to Temporal at ${config.temporal.address}`);
+		const client = await createTemporalClient({
+			address: config.temporal.address,
+			namespace: config.temporal.namespace,
+			tls: config.temporal.tls,
+		});
+
+		try {
+			// Get workflow handle
+			this.logVerbose(`Getting handle for workflow: ${flags['workflow-id']}`);
+			const handle = client.workflow.getHandle(flags['workflow-id']);
+
+			// Check workflow status first if not waiting
+			if (!flags.wait) {
+				const description = await handle.describe();
+				if (description.status.name === 'RUNNING') {
+					if (flags.json) {
+						console.log(
+							JSON.stringify(
+								{
+									error: 'Workflow is still running. Use --wait flag to wait for completion.',
+									status: description.status.name,
+									workflowId: description.workflowId,
+									runId: description.runId,
+								},
+								null,
+								2,
+							),
+						);
+						process.exit(1);
+					}
+					this.logError(
+						'Workflow is still running. Use --wait flag to wait for completion.\n' +
+							'Status: ' +
+							description.status.name +
+							'\n' +
+							'Workflow ID: ' +
+							description.workflowId,
+					);
+				}
+			} else {
+				if (!flags.json) {
+					this.logMessage('Waiting for workflow to complete...');
+				}
+			}
+
+			// Get the result (this will wait if workflow is still running and --wait is used)
+			this.logVerbose('Fetching workflow result...');
+			const result = (await handle.result()) as ExecuteN8nWorkflowOutput;
+
+			if (flags.json) {
+				console.log(JSON.stringify(result, null, 2));
+			} else {
+				this.logMessage('');
+				this.logMessage('=== Workflow Result ===');
+				this.logMessage(`Status: ${result.success ? 'SUCCESS' : 'FAILED'}`);
+				this.logMessage(`Execution Status: ${result.status}`);
+
+				if (result.error) {
+					this.logMessage(`Error: ${result.error.message}`);
+					if (result.error.description) {
+						this.logMessage(`Description: ${result.error.description}`);
+					}
+				}
+
+				if (result.data) {
+					this.logMessage('');
+					this.logMessage('Output Data:');
+					console.log(JSON.stringify(result.data, null, 2));
+				}
+			}
+		} catch (error) {
+			if (flags.json) {
+				console.log(JSON.stringify({ error: (error as Error).message }, null, 2));
+				process.exit(1);
+			}
+			this.logError(`Failed to get workflow result: ${(error as Error).message}`);
+		} finally {
+			await client.connection.close();
 		}
 	}
 }
