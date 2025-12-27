@@ -2,6 +2,8 @@
 module.exports = {
 	testEnvironment: 'node',
 	testMatch: ['**/test/**/*.test.ts'],
+	// Exclude integration tests by default - they require special setup
+	testPathIgnorePatterns: ['/node_modules/', '/test/integration/'],
 	transform: {
 		'^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
 	},

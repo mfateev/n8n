@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import * as os from 'os';
+import * as path from 'path';
 
 import { loadWorkflowFromFile, findStartNode } from '../../src/utils/workflow-loader';
 
@@ -143,6 +143,7 @@ describe('Workflow Loader', () => {
 				connections: {},
 				settings: { executionOrder: 'v1' },
 				staticData: { lastRun: '2025-01-01' },
+				// eslint-disable-next-line @typescript-eslint/naming-convention -- pinData keys are node names
 				pinData: { Start: [{ json: { test: true } }] },
 			};
 

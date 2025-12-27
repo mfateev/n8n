@@ -6,8 +6,8 @@
  */
 
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import type { IConnections, INode, IWorkflowSettings, IDataObject, IPinData } from 'n8n-workflow';
+import * as path from 'path';
 
 /**
  * Workflow definition as stored in JSON files.
