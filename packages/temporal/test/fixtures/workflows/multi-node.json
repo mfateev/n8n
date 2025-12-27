@@ -1,0 +1,150 @@
+{
+	"name": "Multi-Node Sequential Workflow",
+	"nodes": [
+		{
+			"id": "trigger-1",
+			"name": "Manual Trigger",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"parameters": {}
+		},
+		{
+			"id": "set-1",
+			"name": "Set Initial Data",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [200, 0],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "a1",
+							"name": "step",
+							"value": "1",
+							"type": "string"
+						},
+						{
+							"id": "a2",
+							"name": "counter",
+							"value": "10",
+							"type": "number"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		},
+		{
+			"id": "set-2",
+			"name": "Transform Data",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [400, 0],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "b1",
+							"name": "step",
+							"value": "2",
+							"type": "string"
+						},
+						{
+							"id": "b2",
+							"name": "doubled",
+							"value": "={{ $json.counter * 2 }}",
+							"type": "number"
+						},
+						{
+							"id": "b3",
+							"name": "previousStep",
+							"value": "={{ $json.step }}",
+							"type": "string"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		},
+		{
+			"id": "set-3",
+			"name": "Final Output",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [600, 0],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "c1",
+							"name": "step",
+							"value": "3",
+							"type": "string"
+						},
+						{
+							"id": "c2",
+							"name": "summary",
+							"value": "={{ 'Counter was ' + $json.counter + ', doubled to ' + $json.doubled }}",
+							"type": "string"
+						},
+						{
+							"id": "c3",
+							"name": "allSteps",
+							"value": "={{ [$json.previousStep, $json.step, '3'].join(' -> ') }}",
+							"type": "string"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		}
+	],
+	"connections": {
+		"Manual Trigger": {
+			"main": [
+				[
+					{
+						"node": "Set Initial Data",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Set Initial Data": {
+			"main": [
+				[
+					{
+						"node": "Transform Data",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Transform Data": {
+			"main": [
+				[
+					{
+						"node": "Final Output",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
