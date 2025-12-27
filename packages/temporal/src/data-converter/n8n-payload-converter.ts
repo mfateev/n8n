@@ -5,9 +5,13 @@
  * particularly Error subclasses that need special serialization.
  *
  * This converter:
- * 1. Detects n8n error types during serialization
+ * 1. Detects n8n error types during serialization (via duck typing)
  * 2. Converts them to tagged JSON objects
- * 3. Reconstructs the original error classes during deserialization
+ * 3. Reconstructs as generic Error objects during deserialization
+ *
+ * NOTE: We do NOT import from n8n-workflow here because this code
+ * runs in Temporal's V8 sandbox which cannot handle dynamic require().
+ * Instead we use duck typing to detect n8n error types.
  */
 
 import {
@@ -18,15 +22,44 @@ import {
 	type Payload,
 	type PayloadConverterWithEncoding,
 } from '@temporalio/common';
-import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 
 import type { SerializedError } from '../types/serialized-error';
 import { isSerializedError } from '../types/serialized-error';
 
 /**
+ * Duck-type check for NodeApiError
+ * Checks for properties specific to NodeApiError
+ */
+function isNodeApiError(value: unknown): boolean {
+	if (!(value instanceof Error)) return false;
+	const error = value as Error & Record<string, unknown>;
+	return (
+		error.name === 'NodeApiError' ||
+		(typeof error.httpCode !== 'undefined' &&
+			typeof error.node !== 'undefined' &&
+			typeof error.timestamp !== 'undefined')
+	);
+}
+
+/**
+ * Duck-type check for NodeOperationError
+ * Checks for properties specific to NodeOperationError
+ */
+function isNodeOperationError(value: unknown): boolean {
+	if (!(value instanceof Error)) return false;
+	const error = value as Error & Record<string, unknown>;
+	return (
+		error.name === 'NodeOperationError' ||
+		(typeof error.node !== 'undefined' &&
+			typeof error.timestamp !== 'undefined' &&
+			typeof error.httpCode === 'undefined') // NodeApiError has httpCode, NodeOperationError doesn't
+	);
+}
+
+/**
  * Normalize level to match our constrained type
  */
-function normalizeLevel(level: string | undefined): 'warning' | 'error' | undefined {
+function normalizeLevel(level: unknown): 'warning' | 'error' | undefined {
 	if (level === 'warning' || level === 'error') {
 		return level;
 	}
@@ -37,7 +70,7 @@ function normalizeLevel(level: string | undefined): 'warning' | 'error' | undefi
  * Normalize functionality to match our constrained type
  */
 function normalizeFunctionality(
-	functionality: string | undefined,
+	functionality: unknown,
 ): 'regular' | 'configuration-node' | undefined {
 	if (functionality === 'regular' || functionality === 'configuration-node') {
 		return functionality;
@@ -59,36 +92,38 @@ class N8nJsonPayloadConverter implements PayloadConverterWithEncoding {
 	readonly encodingType = 'json/plain';
 
 	toPayload<T>(value: T): Payload | undefined {
-		// Handle n8n error types
-		if (value instanceof NodeApiError) {
+		// Handle n8n error types via duck typing
+		if (isNodeApiError(value)) {
+			const error = value as Error & Record<string, unknown>;
 			const serialized: SerializedError = {
 				__type: 'NodeApiError',
-				message: value.message,
-				stack: value.stack,
-				description: value.description ?? undefined,
-				context: value.context,
-				timestamp: value.timestamp,
-				lineNumber: value.lineNumber,
-				node: value.node,
-				httpCode: value.httpCode,
-				level: normalizeLevel(value.level),
-				functionality: normalizeFunctionality(value.functionality),
+				message: error.message,
+				stack: error.stack,
+				description: (error.description as string) ?? undefined,
+				context: error.context as Record<string, unknown>,
+				timestamp: error.timestamp as number,
+				lineNumber: error.lineNumber as number,
+				node: error.node as Record<string, unknown>,
+				httpCode: error.httpCode as string,
+				level: normalizeLevel(error.level),
+				functionality: normalizeFunctionality(error.functionality),
 			};
 			return this.jsonConverter.toPayload(serialized);
 		}
 
-		if (value instanceof NodeOperationError) {
+		if (isNodeOperationError(value)) {
+			const error = value as Error & Record<string, unknown>;
 			const serialized: SerializedError = {
 				__type: 'NodeOperationError',
-				message: value.message,
-				stack: value.stack,
-				description: value.description ?? undefined,
-				context: value.context,
-				timestamp: value.timestamp,
-				lineNumber: value.lineNumber,
-				node: value.node,
-				level: normalizeLevel(value.level),
-				functionality: normalizeFunctionality(value.functionality),
+				message: error.message,
+				stack: error.stack,
+				description: (error.description as string) ?? undefined,
+				context: error.context as Record<string, unknown>,
+				timestamp: error.timestamp as number,
+				lineNumber: error.lineNumber as number,
+				node: error.node as Record<string, unknown>,
+				level: normalizeLevel(error.level),
+				functionality: normalizeFunctionality(error.functionality),
 			};
 			return this.jsonConverter.toPayload(serialized);
 		}
@@ -155,34 +190,36 @@ class N8nJsonPayloadConverter implements PayloadConverterWithEncoding {
 	 * Serialize an Error to our tagged format
 	 */
 	private serializeError(error: Error): SerializedError {
-		if (error instanceof NodeApiError) {
+		const errorRecord = error as Error & Record<string, unknown>;
+
+		if (isNodeApiError(error)) {
 			return {
 				__type: 'NodeApiError',
 				message: error.message,
 				stack: error.stack,
-				description: error.description ?? undefined,
-				context: error.context,
-				timestamp: error.timestamp,
-				lineNumber: error.lineNumber,
-				node: error.node,
-				httpCode: error.httpCode,
-				level: normalizeLevel(error.level),
-				functionality: normalizeFunctionality(error.functionality),
+				description: (errorRecord.description as string) ?? undefined,
+				context: errorRecord.context as Record<string, unknown>,
+				timestamp: errorRecord.timestamp as number,
+				lineNumber: errorRecord.lineNumber as number,
+				node: errorRecord.node as Record<string, unknown>,
+				httpCode: errorRecord.httpCode as string,
+				level: normalizeLevel(errorRecord.level),
+				functionality: normalizeFunctionality(errorRecord.functionality),
 			};
 		}
 
-		if (error instanceof NodeOperationError) {
+		if (isNodeOperationError(error)) {
 			return {
 				__type: 'NodeOperationError',
 				message: error.message,
 				stack: error.stack,
-				description: error.description ?? undefined,
-				context: error.context,
-				timestamp: error.timestamp,
-				lineNumber: error.lineNumber,
-				node: error.node,
-				level: normalizeLevel(error.level),
-				functionality: normalizeFunctionality(error.functionality),
+				description: (errorRecord.description as string) ?? undefined,
+				context: errorRecord.context as Record<string, unknown>,
+				timestamp: errorRecord.timestamp as number,
+				lineNumber: errorRecord.lineNumber as number,
+				node: errorRecord.node as Record<string, unknown>,
+				level: normalizeLevel(errorRecord.level),
+				functionality: normalizeFunctionality(errorRecord.functionality),
 			};
 		}
 
@@ -196,6 +233,11 @@ class N8nJsonPayloadConverter implements PayloadConverterWithEncoding {
 
 	/**
 	 * Recursively deserialize values, reconstructing Error instances
+	 *
+	 * NOTE: In the workflow sandbox, we cannot reconstruct actual n8n error
+	 * classes because we can't import n8n-workflow. Instead, we create
+	 * generic Error objects with all the properties preserved. The actual
+	 * n8n error classes will be reconstructed when needed outside the sandbox.
 	 */
 	private deserializeValue(value: unknown): unknown {
 		if (isSerializedError(value)) {
@@ -219,57 +261,71 @@ class N8nJsonPayloadConverter implements PayloadConverterWithEncoding {
 
 	/**
 	 * Reconstruct an Error from our serialized format
+	 *
+	 * In the workflow sandbox, we create generic Error objects with the
+	 * original properties preserved. The error can be identified by checking
+	 * the 'name' property or the extra properties we add.
 	 */
 	private deserializeError(serialized: SerializedError): Error {
-		switch (serialized.__type) {
-			case 'NodeApiError': {
-				const error = new NodeApiError(
-					serialized.node,
-					{ message: serialized.message },
-					{
-						message: serialized.message,
-						description: serialized.description ?? undefined,
-						httpCode: serialized.httpCode ?? undefined,
-					},
-				);
-				error.stack = serialized.stack;
-				if (serialized.context) {
-					error.context = serialized.context;
-				}
-				if (serialized.timestamp) {
-					error.timestamp = serialized.timestamp;
-				}
-				if (serialized.lineNumber) {
-					error.lineNumber = serialized.lineNumber;
-				}
-				return error;
-			}
+		const error = new Error(serialized.message);
+		error.stack = serialized.stack;
 
-			case 'NodeOperationError': {
-				const error = new NodeOperationError(serialized.node, serialized.message, {
-					description: serialized.description ?? undefined,
-				});
-				error.stack = serialized.stack;
-				if (serialized.context) {
-					error.context = serialized.context;
+		// Preserve all n8n error properties on the error object
+		const errorRecord = error as Error & Record<string, unknown>;
+		errorRecord.__type = serialized.__type;
+
+		// Copy base properties that exist on all serialized errors
+		if (serialized.description !== undefined) {
+			errorRecord.description = serialized.description;
+		}
+		if (serialized.context !== undefined) {
+			errorRecord.context = serialized.context;
+		}
+		if (serialized.timestamp !== undefined) {
+			errorRecord.timestamp = serialized.timestamp;
+		}
+		if (serialized.lineNumber !== undefined) {
+			errorRecord.lineNumber = serialized.lineNumber;
+		}
+
+		// Handle type-specific properties using discriminated union
+		switch (serialized.__type) {
+			case 'NodeApiError':
+				error.name = 'NodeApiError';
+				if (serialized.node !== undefined) {
+					errorRecord.node = serialized.node;
 				}
-				if (serialized.timestamp) {
-					error.timestamp = serialized.timestamp;
+				if (serialized.httpCode !== undefined) {
+					errorRecord.httpCode = serialized.httpCode;
 				}
-				if (serialized.lineNumber) {
-					error.lineNumber = serialized.lineNumber;
+				if (serialized.level !== undefined) {
+					errorRecord.level = serialized.level;
 				}
-				return error;
-			}
+				if (serialized.functionality !== undefined) {
+					errorRecord.functionality = serialized.functionality;
+				}
+				break;
+
+			case 'NodeOperationError':
+				error.name = 'NodeOperationError';
+				if (serialized.node !== undefined) {
+					errorRecord.node = serialized.node;
+				}
+				if (serialized.level !== undefined) {
+					errorRecord.level = serialized.level;
+				}
+				if (serialized.functionality !== undefined) {
+					errorRecord.functionality = serialized.functionality;
+				}
+				break;
 
 			case 'Error':
-			default: {
-				const error = new Error(serialized.message);
-				error.name = serialized.name;
-				error.stack = serialized.stack;
-				return error;
-			}
+			default:
+				error.name = serialized.name ?? 'Error';
+				break;
 		}
+
+		return error;
 	}
 }
 

@@ -146,6 +146,43 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 		dataConverter: {
 			payloadConverterPath: require.resolve('../data-converter'),
 		},
+		// Ignore Node.js modules that are imported transitively via type imports
+		// These modules are not actually used at runtime in the workflow code
+		// (all n8n code execution happens in Activities, not in the V8 sandbox)
+		bundlerOptions: {
+			ignoreModules: [
+				'os',
+				'fs',
+				'path',
+				'events',
+				'timers',
+				'stream',
+				'string_decoder',
+				'buffer',
+				'crypto',
+				'util',
+				'assert',
+				'http',
+				'https',
+				'url',
+				'zlib',
+				'querystring',
+				'child_process',
+				'net',
+				'tls',
+				'dns',
+				'dgram',
+				'cluster',
+				'readline',
+				'repl',
+				'vm',
+				'v8',
+				'tty',
+				'worker_threads',
+				'perf_hooks',
+				'async_hooks',
+			],
+		},
 	};
 
 	// Apply optional configuration
