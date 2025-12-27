@@ -1,0 +1,134 @@
+{
+	"name": "IF Branching Test Workflow",
+	"nodes": [
+		{
+			"id": "trigger-1",
+			"name": "Manual Trigger",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"parameters": {}
+		},
+		{
+			"id": "if-1",
+			"name": "Check Value",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2,
+			"position": [200, 0],
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "strict"
+					},
+					"conditions": [
+						{
+							"id": "condition-1",
+							"leftValue": "={{ $json.shouldPass }}",
+							"rightValue": true,
+							"operator": {
+								"type": "boolean",
+								"operation": "equals"
+							}
+						}
+					],
+					"combinator": "and"
+				},
+				"options": {}
+			}
+		},
+		{
+			"id": "set-true",
+			"name": "True Branch",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [400, -100],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "a1",
+							"name": "branch",
+							"value": "true",
+							"type": "string"
+						},
+						{
+							"id": "a2",
+							"name": "message",
+							"value": "Condition was true",
+							"type": "string"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		},
+		{
+			"id": "set-false",
+			"name": "False Branch",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [400, 100],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "b1",
+							"name": "branch",
+							"value": "false",
+							"type": "string"
+						},
+						{
+							"id": "b2",
+							"name": "message",
+							"value": "Condition was false",
+							"type": "string"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		}
+	],
+	"connections": {
+		"Manual Trigger": {
+			"main": [
+				[
+					{
+						"node": "Check Value",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Check Value": {
+			"main": [
+				[
+					{
+						"node": "True Branch",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "False Branch",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
