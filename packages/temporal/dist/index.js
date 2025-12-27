@@ -34,4 +34,15 @@ __exportStar(require('./credentials/credentials-helper'), exports);
 __exportStar(require('./credentials/credential-types'), exports);
 __exportStar(require('./nodes/node-types'), exports);
 __exportStar(require('./nodes/loader'), exports);
+__exportStar(require('./binary-data'), exports);
+__exportStar(require('./utils/state-merge'), exports);
+__exportStar(require('./utils/error-serializer'), exports);
+__exportStar(require('./utils/additional-data'), exports);
+__exportStar(require('./utils/execution-data'), exports);
+__exportStar(require('./utils/workflow-loader'), exports);
+__exportStar(require('./utils/logger'), exports);
+__exportStar(require('./activities'), exports);
+__exportStar(require('./worker'), exports);
+__exportStar(require('./data-converter'), exports);
+__exportStar(require('./cli'), exports);
 //# sourceMappingURL=index.js.map

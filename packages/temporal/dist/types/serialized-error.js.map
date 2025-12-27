@@ -1,0 +1,1 @@
+{"version":3,"file":"serialized-error.js","sourceRoot":"","sources":["../../src/types/serialized-error.ts"],"names":[],"mappings":";;AAgEA,8CAOC;AAPD,SAAgB,iBAAiB,CAAC,KAAc;IAC/C,OAAO,CACN,OAAO,KAAK,KAAK,QAAQ;QACzB,KAAK,KAAK,IAAI;QACd,QAAQ,IAAI,KAAK;QACjB,OAAQ,KAAyB,CAAC,MAAM,KAAK,QAAQ,CACrD,CAAC;AACH,CAAC"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../src/cli/commands/index.ts"],"names":[],"mappings":";;;;;;AAOA,2DAAyC;AACzC,+DAA+C;AAC/C,yDAAyC;AACzC,6DAA6C;AAC7C,+DAA+C;AAGlC,QAAA,QAAQ,GAAG;IAEvB,cAAc,EAAE,eAAW;IAG3B,cAAc,EAAE,aAAW;IAC3B,gBAAgB,EAAE,eAAa;IAC/B,iBAAiB,EAAE,gBAAc;IACjC,iBAAiB,EAAE,gBAAc;CACjC,CAAC"}

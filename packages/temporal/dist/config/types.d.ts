@@ -25,13 +25,19 @@ export interface BinaryDataConfig {
 	s3?: {
 		bucket: string;
 		region: string;
+		host?: string;
+		protocol?: 'http' | 'https';
 		accessKeyId?: string;
 		secretAccessKey?: string;
-		endpoint?: string;
+		authAutoDetect?: boolean;
 	};
 	filesystem?: {
 		basePath: string;
 	};
+}
+export interface LoggingConfig {
+	level?: 'debug' | 'info' | 'warn' | 'error';
+	format?: 'text' | 'json';
 }
 export interface ExecutionConfig {
 	activityTimeout?: number;
@@ -47,4 +53,5 @@ export interface TemporalN8nConfig {
 	credentials: CredentialStoreConfig;
 	binaryData?: BinaryDataConfig;
 	execution?: ExecutionConfig;
+	logging?: LoggingConfig;
 }

@@ -11,15 +11,15 @@ import WorkflowRun from './workflow/run';
 import WorkflowStart from './workflow/start';
 import WorkflowStatus from './workflow/status';
 
-/* eslint-disable @typescript-eslint/naming-convention -- oclif command names use space-separated topics */
+/* eslint-disable @typescript-eslint/naming-convention -- oclif command names use colon-separated format */
 export const commands = {
 	// Worker commands
-	'worker start': WorkerStart,
+	'worker:start': WorkerStart,
 
 	// Workflow commands
-	'workflow run': WorkflowRun,
-	'workflow start': WorkflowStart,
-	'workflow status': WorkflowStatus,
-	'workflow result': WorkflowResult,
+	'workflow:run': WorkflowRun,
+	'workflow:start': WorkflowStart,
+	'workflow:status': WorkflowStatus,
+	'workflow:result': WorkflowResult,
 };
 /* eslint-enable @typescript-eslint/naming-convention */
