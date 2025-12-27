@@ -1,0 +1,115 @@
+{
+	"name": "Continue On Fail Test Workflow",
+	"nodes": [
+		{
+			"id": "trigger-1",
+			"name": "Manual Trigger",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"parameters": {}
+		},
+		{
+			"id": "set-before",
+			"name": "Before Error",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [200, 0],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "a1",
+							"name": "beforeError",
+							"value": "true",
+							"type": "boolean"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		},
+		{
+			"id": "code-error",
+			"name": "Throw Error",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [400, 0],
+			"continueOnFail": true,
+			"parameters": {
+				"mode": "runOnceForAllItems",
+				"jsCode": "throw new Error('Intentional error for testing');"
+			}
+		},
+		{
+			"id": "set-after",
+			"name": "After Error",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [600, 0],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "b1",
+							"name": "afterError",
+							"value": "true",
+							"type": "boolean"
+						},
+						{
+							"id": "b2",
+							"name": "continuedAfterFail",
+							"value": "true",
+							"type": "boolean"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		}
+	],
+	"connections": {
+		"Manual Trigger": {
+			"main": [
+				[
+					{
+						"node": "Before Error",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Before Error": {
+			"main": [
+				[
+					{
+						"node": "Throw Error",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Throw Error": {
+			"main": [
+				[
+					{
+						"node": "After Error",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
