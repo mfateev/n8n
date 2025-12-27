@@ -44,5 +44,8 @@ export * from './worker';
 // Data converter
 export * from './data-converter';
 
+// CLI
+export * from './cli';
+
 // Note: Workflows are not exported here as they must be loaded via workflowsPath
 // by the Temporal worker due to V8 sandbox requirements

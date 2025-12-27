@@ -270,8 +270,8 @@ describe('Integration: Code Node E2E', () => {
 						},
 					},
 				],
-				// eslint-disable-next-line @typescript-eslint/naming-convention -- connections keys are node names
 				connections: {
+					// eslint-disable-next-line @typescript-eslint/naming-convention -- connections keys are node names
 					'Manual Trigger': { main: [[{ node: 'Error Code', type: 'main', index: 0 }]] },
 				},
 				settings: { executionOrder: 'v1' },
@@ -338,8 +338,8 @@ describe('Integration: Code Node E2E', () => {
 						},
 					},
 				],
-				// eslint-disable-next-line @typescript-eslint/naming-convention -- connections keys are node names
 				connections: {
+					// eslint-disable-next-line @typescript-eslint/naming-convention -- connections keys are node names
 					'Manual Trigger': { main: [[{ node: 'Syntax Error Code', type: 'main', index: 0 }]] },
 				},
 				settings: { executionOrder: 'v1' },

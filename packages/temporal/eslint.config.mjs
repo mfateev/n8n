@@ -3,7 +3,7 @@ import { nodeConfig } from '@n8n/eslint-config/node';
 
 export default defineConfig(
 	nodeConfig,
-	globalIgnores(['dist/*', 'coverage/*', 'jest.integration.config.js']),
+	globalIgnores(['dist/*', 'coverage/*', 'jest.integration.config.js', 'bin/*']),
 	{
 		rules: {
 			'unicorn/filename-case': ['error', { case: 'kebabCase' }],

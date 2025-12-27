@@ -4,6 +4,18 @@
   "description": "Temporal integration for n8n workflows",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "temporal-n8n": "./bin/temporal-n8n.js"
+  },
+  "oclif": {
+    "bin": "temporal-n8n",
+    "commands": {
+      "strategy": "explicit",
+      "target": "./dist/cli/commands/index.js",
+      "identifier": "commands"
+    },
+    "topicSeparator": " "
+  },
   "scripts": {
     "clean": "rimraf dist .turbo",
     "typecheck": "tsc --noEmit",
@@ -20,9 +32,12 @@
     "test:integration": "jest --config jest.integration.config.js"
   },
   "files": [
+    "bin",
     "dist"
   ],
   "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "@oclif/core": "^4.5.2",
     "@aws-sdk/client-s3": "3.808.0",
     "@temporalio/activity": "^1.11.7",
     "@temporalio/client": "^1.11.7",
