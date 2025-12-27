@@ -28,6 +28,7 @@ import type {
 } from '../types/activity-types';
 import { buildAdditionalData } from '../utils/additional-data';
 import { serializeError } from '../utils/error-serializer';
+import { getLogger } from '../utils/logger';
 import { getWorkerContext } from '../worker/context';
 
 /**
@@ -41,6 +42,13 @@ export async function executeWorkflowStep(
 ): Promise<ExecuteWorkflowStepOutput> {
 	const { workflowDefinition, runExecutionData, inputData, previouslyExecutedNodes } = input;
 	const context = getWorkerContext();
+	const logger = getLogger().child('Activity');
+
+	logger.debug('Executing workflow step', {
+		workflowId: workflowDefinition.id,
+		workflowName: workflowDefinition.name,
+		previousNodesCount: previouslyExecutedNodes.length,
+	});
 
 	// Track which nodes existed before this step (for diff computation)
 	const previousNodeNames = new Set(previouslyExecutedNodes);
@@ -95,6 +103,12 @@ export async function executeWorkflowStep(
 
 		// Check for waitTill (Wait node triggered)
 		if (result.waitTill) {
+			logger.info('Workflow step waiting', {
+				workflowId: workflowDefinition.id,
+				lastNodeExecuted: result.data.resultData.lastNodeExecuted,
+				waitTill: result.waitTill.toISOString(),
+				newNodesExecuted: Object.keys(newRunData).length,
+			});
 			return {
 				complete: false,
 				newRunData,
@@ -106,6 +120,12 @@ export async function executeWorkflowStep(
 
 		// Check for error
 		if (result.data.resultData.error) {
+			logger.warn('Workflow step failed', {
+				workflowId: workflowDefinition.id,
+				lastNodeExecuted: result.data.resultData.lastNodeExecuted,
+				error: result.data.resultData.error.message,
+				newNodesExecuted: Object.keys(newRunData).length,
+			});
 			return {
 				complete: true,
 				newRunData,
@@ -116,6 +136,11 @@ export async function executeWorkflowStep(
 		}
 
 		// Success - workflow completed
+		logger.info('Workflow step completed', {
+			workflowId: workflowDefinition.id,
+			lastNodeExecuted: result.data.resultData.lastNodeExecuted,
+			newNodesExecuted: Object.keys(newRunData).length,
+		});
 		return {
 			complete: true,
 			newRunData,
@@ -125,6 +150,10 @@ export async function executeWorkflowStep(
 		};
 	} catch (error) {
 		// Unexpected error during execution
+		logger.error('Workflow step unexpected error', {
+			workflowId: workflowDefinition.id,
+			error: (error as Error).message,
+		});
 		return {
 			complete: true,
 			newRunData: {},

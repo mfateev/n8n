@@ -23,12 +23,14 @@ import type {
 	TemporalWorkerConfig,
 	CredentialStoreConfig,
 	BinaryDataConfig,
+	LoggingConfig,
 } from '../config/types';
 import { createWorkerConnection } from '../connection/worker-connection';
 import { TemporalCredentialTypes } from '../credentials/credential-types';
 import { TemporalCredentialsHelper } from '../credentials/credentials-helper';
 import { JsonFileCredentialStore } from '../credentials/json-file-store';
 import { TemporalNodeTypes } from '../nodes/node-types';
+import { getLogger, initializeLogger } from '../utils/logger';
 
 /**
  * Complete worker configuration
@@ -37,6 +39,7 @@ export interface WorkerBootstrapConfig {
 	temporal: TemporalWorkerConfig;
 	credentials: CredentialStoreConfig;
 	binaryData?: BinaryDataConfig;
+	logging?: LoggingConfig;
 }
 
 /**
@@ -71,24 +74,34 @@ export interface WorkerRunResult {
  * ```
  */
 export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRunResult> {
-	console.log('[Worker] Starting initialization...');
+	// Initialize logger with configuration (or use defaults)
+	const logger = config.logging
+		? initializeLogger({
+				level: config.logging.level ?? 'info',
+				json: config.logging.format === 'json',
+				prefix: 'Worker',
+			})
+		: getLogger().child('Worker');
+
+	logger.info('Starting initialization');
 
 	// 1. Load credential store
-	console.log(`[Worker] Loading credentials from ${config.credentials.path}`);
+	logger.info('Loading credentials', { path: config.credentials.path });
 	const credentialStore = new JsonFileCredentialStore(config.credentials.path);
 	await credentialStore.load();
+	logger.debug('Credentials loaded');
 
 	// 2. Load node types
-	console.log('[Worker] Loading node types...');
+	logger.info('Loading node types');
 	const nodeTypes = new TemporalNodeTypes();
 	await nodeTypes.loadAll();
-	console.log('[Worker] Node types loaded');
+	logger.debug('Node types loaded');
 
 	// 3. Load credential types (synchronous)
-	console.log('[Worker] Loading credential types...');
+	logger.info('Loading credential types');
 	const credentialTypes = new TemporalCredentialTypes(nodeTypes);
 	credentialTypes.loadAll();
-	console.log('[Worker] Credential types loaded');
+	logger.debug('Credential types loaded');
 
 	// 4. Create credentials helper
 	const credentialsHelper = new TemporalCredentialsHelper(credentialStore, credentialTypes);
@@ -96,10 +109,10 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 	// 5. Initialize binary data helper (optional)
 	let binaryDataHelper: TemporalBinaryDataHelper | undefined;
 	if (config.binaryData) {
-		console.log(`[Worker] Initializing binary data helper (mode: ${config.binaryData.mode})`);
+		logger.info('Initializing binary data helper', { mode: config.binaryData.mode });
 		const result = await initializeBinaryDataHelper(config.binaryData);
 		binaryDataHelper = result.helper;
-		console.log('[Worker] Binary data helper initialized');
+		logger.debug('Binary data helper initialized');
 	}
 
 	// 6. Initialize worker context
@@ -112,11 +125,15 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 		binaryDataHelper,
 		identity,
 	});
-	console.log('[Worker] Worker context initialized');
+	logger.debug('Worker context initialized', { identity });
 
 	// 7. Create Temporal connection
-	console.log(`[Worker] Connecting to Temporal at ${config.temporal.address}`);
+	logger.info('Connecting to Temporal', {
+		address: config.temporal.address,
+		namespace: config.temporal.namespace ?? 'default',
+	});
 	const connection = await createWorkerConnection(config.temporal);
+	logger.debug('Temporal connection established');
 
 	// 8. Create worker
 	const workerOptions: WorkerOptions = {
@@ -146,7 +163,10 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 
 	const worker = await Worker.create(workerOptions);
 
-	console.log(`[Worker] Worker started on task queue: ${config.temporal.taskQueue}`);
+	logger.info('Worker started', {
+		taskQueue: config.temporal.taskQueue,
+		identity,
+	});
 
 	// 9. Run the worker (this blocks until shutdown)
 	const runPromise = worker.run();
@@ -154,11 +174,11 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 	// Return shutdown function
 	return {
 		shutdown: async () => {
-			console.log('[Worker] Shutting down...');
+			logger.info('Shutting down');
 			worker.shutdown();
 			await runPromise;
 			await connection.close();
-			console.log('[Worker] Shutdown complete');
+			logger.info('Shutdown complete');
 		},
 	};
 }

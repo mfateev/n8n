@@ -34,6 +34,7 @@ export * from './utils/error-serializer';
 export * from './utils/additional-data';
 export * from './utils/execution-data';
 export * from './utils/workflow-loader';
+export * from './utils/logger';
 
 // Activities
 export * from './activities';

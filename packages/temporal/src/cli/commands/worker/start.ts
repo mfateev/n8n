@@ -58,10 +58,15 @@ export default class WorkerStart extends BaseCommand {
 		}
 
 		try {
+			// If verbose flag is set and no logging config, use debug level
+			const loggingConfig =
+				config.logging ?? (flags.verbose ? { level: 'debug' as const } : undefined);
+
 			const { shutdown } = await runWorker({
 				temporal: config.temporal,
 				credentials: config.credentials,
 				binaryData: config.binaryData,
+				logging: loggingConfig,
 			});
 
 			// Handle shutdown signals
