@@ -1,0 +1,50 @@
+{
+	"id": "http-oauth-test",
+	"name": "HTTP Request with OAuth2",
+	"nodes": [
+		{
+			"id": "trigger",
+			"name": "Manual Trigger",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"parameters": {}
+		},
+		{
+			"id": "http-request",
+			"name": "HTTP Request",
+			"type": "n8n-nodes-base.httpRequest",
+			"typeVersion": 4.2,
+			"position": [200, 0],
+			"parameters": {
+				"url": "https://httpbin.org/bearer",
+				"method": "GET",
+				"authentication": "genericCredentialType",
+				"genericAuthType": "oAuth2Api",
+				"options": {}
+			},
+			"credentials": {
+				"oAuth2Api": {
+					"id": "test-oauth-cred",
+					"name": "Test OAuth2"
+				}
+			}
+		}
+	],
+	"connections": {
+		"Manual Trigger": {
+			"main": [
+				[
+					{
+						"node": "HTTP Request",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
