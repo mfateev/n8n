@@ -1,0 +1,88 @@
+{
+	"id": "binary-data-test",
+	"name": "Binary Data Test Workflow",
+	"nodes": [
+		{
+			"id": "trigger",
+			"name": "Manual Trigger",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"parameters": {}
+		},
+		{
+			"id": "http-download",
+			"name": "Download Image",
+			"type": "n8n-nodes-base.httpRequest",
+			"typeVersion": 4.2,
+			"position": [200, 0],
+			"parameters": {
+				"url": "https://httpbin.org/image/png",
+				"method": "GET",
+				"options": {
+					"response": {
+						"response": {
+							"responseFormat": "file"
+						}
+					}
+				}
+			}
+		},
+		{
+			"id": "check-binary",
+			"name": "Check Binary",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [400, 0],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "has-binary",
+							"name": "hasBinary",
+							"type": "boolean",
+							"value": "={{ $binary !== undefined && Object.keys($binary).length > 0 }}"
+						},
+						{
+							"id": "binary-keys",
+							"name": "binaryKeys",
+							"type": "string",
+							"value": "={{ Object.keys($binary || {}).join(', ') }}"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		}
+	],
+	"connections": {
+		"Manual Trigger": {
+			"main": [
+				[
+					{
+						"node": "Download Image",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Download Image": {
+			"main": [
+				[
+					{
+						"node": "Check Binary",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
