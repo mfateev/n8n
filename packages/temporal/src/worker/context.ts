@@ -12,6 +12,7 @@
 
 import type { INodeTypes, ICredentialsHelper } from 'n8n-workflow';
 
+import type { TemporalBinaryDataHelper } from '../binary-data/temporal-binary-data-helper';
 import type { BinaryDataConfig } from '../config/types';
 import type { TemporalCredentialTypes } from '../credentials/credential-types';
 
@@ -30,6 +31,9 @@ export interface WorkerContext {
 
 	/** Optional binary data configuration */
 	binaryDataConfig?: BinaryDataConfig;
+
+	/** Initialized binary data helper (undefined if not configured) */
+	binaryDataHelper?: TemporalBinaryDataHelper;
 
 	/** Worker identity (for logging) */
 	identity: string;

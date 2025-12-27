@@ -25,6 +25,9 @@ export * from './nodes/loader';
 // Types
 export type * from './types';
 
+// Binary Data
+export * from './binary-data';
+
 // Utilities
 export * from './utils/state-merge';
 export * from './utils/error-serializer';

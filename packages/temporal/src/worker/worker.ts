@@ -17,6 +17,8 @@ import type { NativeConnection, WorkerOptions } from '@temporalio/worker';
 
 import { initializeWorkerContext } from './context';
 import * as activities from '../activities';
+import type { TemporalBinaryDataHelper } from '../binary-data/temporal-binary-data-helper';
+import { initializeBinaryDataHelper } from '../binary-data/temporal-binary-data-helper';
 import type {
 	TemporalWorkerConfig,
 	CredentialStoreConfig,
@@ -91,22 +93,32 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 	// 4. Create credentials helper
 	const credentialsHelper = new TemporalCredentialsHelper(credentialStore, credentialTypes);
 
-	// 5. Initialize worker context
+	// 5. Initialize binary data helper (optional)
+	let binaryDataHelper: TemporalBinaryDataHelper | undefined;
+	if (config.binaryData) {
+		console.log(`[Worker] Initializing binary data helper (mode: ${config.binaryData.mode})`);
+		const result = await initializeBinaryDataHelper(config.binaryData);
+		binaryDataHelper = result.helper;
+		console.log('[Worker] Binary data helper initialized');
+	}
+
+	// 6. Initialize worker context
 	const identity = config.temporal.identity ?? `n8n-worker-${process.pid}`;
 	initializeWorkerContext({
 		nodeTypes,
 		credentialsHelper,
 		credentialTypes,
 		binaryDataConfig: config.binaryData,
+		binaryDataHelper,
 		identity,
 	});
 	console.log('[Worker] Worker context initialized');
 
-	// 6. Create Temporal connection
+	// 7. Create Temporal connection
 	console.log(`[Worker] Connecting to Temporal at ${config.temporal.address}`);
 	const connection = await createWorkerConnection(config.temporal);
 
-	// 7. Create worker
+	// 8. Create worker
 	const workerOptions: WorkerOptions = {
 		connection,
 		namespace: config.temporal.namespace ?? 'default',
@@ -136,7 +148,7 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 
 	console.log(`[Worker] Worker started on task queue: ${config.temporal.taskQueue}`);
 
-	// 8. Run the worker (this blocks until shutdown)
+	// 9. Run the worker (this blocks until shutdown)
 	const runPromise = worker.run();
 
 	// Return shutdown function
@@ -170,12 +182,20 @@ export async function createWorkerInstance(
 
 	const credentialsHelper = new TemporalCredentialsHelper(credentialStore, credentialTypes);
 
+	// Initialize binary data helper (optional)
+	let binaryDataHelper: TemporalBinaryDataHelper | undefined;
+	if (config.binaryData) {
+		const result = await initializeBinaryDataHelper(config.binaryData);
+		binaryDataHelper = result.helper;
+	}
+
 	const identity = config.temporal.identity ?? `n8n-worker-${process.pid}`;
 	initializeWorkerContext({
 		nodeTypes,
 		credentialsHelper,
 		credentialTypes,
 		binaryDataConfig: config.binaryData,
+		binaryDataHelper,
 		identity,
 	});
 

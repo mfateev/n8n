@@ -60,18 +60,40 @@ export interface CredentialStoreConfig {
 export interface BinaryDataConfig {
 	/** Storage mode */
 	mode: 'filesystem' | 's3';
+
 	/** S3 configuration (when mode is 's3') */
 	s3?: {
+		/** S3 bucket name */
 		bucket: string;
+		/** AWS region */
 		region: string;
+		/** S3 endpoint (for S3-compatible services like MinIO) */
+		host?: string;
+		/** Protocol (http or https) */
+		protocol?: 'http' | 'https';
+		/** AWS access key ID (optional if using IAM roles) */
 		accessKeyId?: string;
+		/** AWS secret access key (optional if using IAM roles) */
 		secretAccessKey?: string;
-		endpoint?: string;
+		/** Use automatic credential detection (IAM roles, etc.) */
+		authAutoDetect?: boolean;
 	};
+
 	/** Filesystem configuration (when mode is 'filesystem') */
 	filesystem?: {
+		/** Base path for binary data storage */
 		basePath: string;
 	};
+}
+
+/**
+ * Logging configuration
+ */
+export interface LoggingConfig {
+	/** Log level: debug, info, warn, error */
+	level?: 'debug' | 'info' | 'warn' | 'error';
+	/** Output format: text or json */
+	format?: 'text' | 'json';
 }
 
 /**
@@ -97,4 +119,6 @@ export interface TemporalN8nConfig {
 	credentials: CredentialStoreConfig;
 	binaryData?: BinaryDataConfig;
 	execution?: ExecutionConfig;
+	/** Logging configuration */
+	logging?: LoggingConfig;
 }
