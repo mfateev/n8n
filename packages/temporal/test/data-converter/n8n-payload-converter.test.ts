@@ -15,7 +15,7 @@ describe('N8nPayloadConverter', () => {
 	};
 
 	describe('NodeApiError serialization', () => {
-		it('should serialize and deserialize NodeApiError', () => {
+		it('should serialize and deserialize NodeApiError preserving properties', () => {
 			const originalError = new NodeApiError(
 				mockNode,
 				{ message: 'API request failed' },
@@ -31,18 +31,25 @@ describe('N8nPayloadConverter', () => {
 			const payload = n8nPayloadConverter.toPayload(originalError);
 			expect(payload).toBeDefined();
 
-			// Deserialize
+			// Deserialize - returns generic Error in V8 sandbox with preserved properties
 			const deserialized = n8nPayloadConverter.fromPayload<Error>(payload);
 
-			expect(deserialized).toBeInstanceOf(NodeApiError);
-			// NodeApiError may transform the message, so just check it exists
+			// In the V8 sandbox, we return generic Error with preserved properties
+			// (can't import n8n-workflow due to dynamic require issues)
+			expect(deserialized).toBeInstanceOf(Error);
+			expect(deserialized.name).toBe('NodeApiError');
 			expect(deserialized.message).toBeDefined();
-			expect((deserialized as NodeApiError).node).toEqual(mockNode);
+
+			// All original properties are preserved on the error object
+			const errorRecord = deserialized as Error & Record<string, unknown>;
+			expect(errorRecord.__type).toBe('NodeApiError');
+			expect(errorRecord.node).toEqual(mockNode);
+			expect(errorRecord.httpCode).toBe('500');
 		});
 	});
 
 	describe('NodeOperationError serialization', () => {
-		it('should serialize and deserialize NodeOperationError', () => {
+		it('should serialize and deserialize NodeOperationError preserving properties', () => {
 			const originalError = new NodeOperationError(mockNode, 'Operation failed', {
 				description: 'Invalid parameter value',
 			});
@@ -52,13 +59,19 @@ describe('N8nPayloadConverter', () => {
 			const payload = n8nPayloadConverter.toPayload(originalError);
 			expect(payload).toBeDefined();
 
-			// Deserialize
+			// Deserialize - returns generic Error in V8 sandbox with preserved properties
 			const deserialized = n8nPayloadConverter.fromPayload<Error>(payload);
 
-			expect(deserialized).toBeInstanceOf(NodeOperationError);
+			// In the V8 sandbox, we return generic Error with preserved properties
+			expect(deserialized).toBeInstanceOf(Error);
+			expect(deserialized.name).toBe('NodeOperationError');
 			expect(deserialized.message).toBe('Operation failed');
-			expect((deserialized as NodeOperationError).description).toBe('Invalid parameter value');
-			expect((deserialized as NodeOperationError).node).toEqual(mockNode);
+
+			// All original properties are preserved on the error object
+			const errorRecord = deserialized as Error & Record<string, unknown>;
+			expect(errorRecord.__type).toBe('NodeOperationError');
+			expect(errorRecord.description).toBe('Invalid parameter value');
+			expect(errorRecord.node).toEqual(mockNode);
 		});
 	});
 
