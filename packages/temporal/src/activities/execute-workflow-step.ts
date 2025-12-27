@@ -72,6 +72,7 @@ export async function executeWorkflowStep(
 			credentialsHelper: context.credentialsHelper,
 			credentialTypes: context.credentialTypes,
 			nodeTypes: context.nodeTypes,
+			workflowData: workflowDefinition,
 		});
 
 		// 3. Prepare execution data

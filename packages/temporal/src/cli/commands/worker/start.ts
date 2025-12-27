@@ -32,6 +32,10 @@ export default class WorkerStart extends BaseCommand {
 		concurrency: Flags.integer({
 			description: 'Maximum concurrent activity executions',
 		}),
+		// eslint-disable-next-line @typescript-eslint/naming-convention -- CLI flag uses kebab-case
+		'exit-on-complete': Flags.integer({
+			description: 'Exit after N workflow tasks complete (useful for testing)',
+		}),
 	};
 
 	async run(): Promise<void> {
@@ -62,11 +66,19 @@ export default class WorkerStart extends BaseCommand {
 			const loggingConfig =
 				config.logging ?? (flags.verbose ? { level: 'debug' as const } : undefined);
 
+			const exitOnComplete = flags['exit-on-complete'];
+			if (exitOnComplete) {
+				this.logMessage(
+					`Exit-on-complete mode: will exit after ${exitOnComplete} workflow task(s)`,
+				);
+			}
+
 			const { shutdown } = await runWorker({
 				temporal: config.temporal,
 				credentials: config.credentials,
 				binaryData: config.binaryData,
 				logging: loggingConfig,
+				exitOnComplete,
 			});
 
 			// Handle shutdown signals

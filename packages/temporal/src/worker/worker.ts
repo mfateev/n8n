@@ -15,6 +15,7 @@
 import { Worker } from '@temporalio/worker';
 import type { NativeConnection, WorkerOptions } from '@temporalio/worker';
 
+import { createCompletionTrackerSinks } from './completion-tracker';
 import { initializeWorkerContext } from './context';
 import * as activities from '../activities';
 import type { TemporalBinaryDataHelper } from '../binary-data/temporal-binary-data-helper';
@@ -40,6 +41,12 @@ export interface WorkerBootstrapConfig {
 	credentials: CredentialStoreConfig;
 	binaryData?: BinaryDataConfig;
 	logging?: LoggingConfig;
+	/**
+	 * Exit after completing this many workflow tasks.
+	 * Useful for testing - worker will shut down after N workflow completions.
+	 * If 0 or undefined, worker runs indefinitely.
+	 */
+	exitOnComplete?: number;
 }
 
 /**
@@ -47,6 +54,8 @@ export interface WorkerBootstrapConfig {
  */
 export interface WorkerRunResult {
 	shutdown: () => Promise<void>;
+	/** Promise that resolves when the worker exits (for exit-on-complete mode) */
+	runPromise: Promise<void>;
 }
 
 /**
@@ -198,6 +207,27 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 		workerOptions.maxCachedWorkflows = config.temporal.maxCachedWorkflows;
 	}
 
+	// Set up exit-on-complete mode using sinks
+	let completionPromise: Promise<void> | undefined;
+	if (config.exitOnComplete && config.exitOnComplete > 0) {
+		logger.info('Running in exit-on-complete mode', {
+			targetCompletions: config.exitOnComplete,
+		});
+
+		// Create a promise that resolves when target completions are reached
+		let resolveCompletion: () => void;
+		completionPromise = new Promise<void>((resolve) => {
+			resolveCompletion = resolve;
+		});
+
+		// Add completion tracker sinks to worker options
+		workerOptions.sinks = createCompletionTrackerSinks({
+			targetCompletions: config.exitOnComplete,
+			onTargetReached: () => resolveCompletion(),
+			logger,
+		});
+	}
+
 	const worker = await Worker.create(workerOptions);
 
 	logger.info('Worker started', {
@@ -205,10 +235,11 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 		identity,
 	});
 
-	// 9. Run the worker (this blocks until shutdown)
-	const runPromise = worker.run();
+	// 9. Run the worker
+	// Use runUntil if exit-on-complete mode is enabled, otherwise run indefinitely
+	const runPromise = completionPromise ? worker.runUntil(completionPromise) : worker.run();
 
-	// Return shutdown function
+	// Return shutdown function and run promise
 	return {
 		shutdown: async () => {
 			logger.info('Shutting down');
@@ -217,6 +248,7 @@ export async function runWorker(config: WorkerBootstrapConfig): Promise<WorkerRu
 			await connection.close();
 			logger.info('Shutdown complete');
 		},
+		runPromise,
 	};
 }
 

@@ -5,6 +5,7 @@
  * This object provides all the context and helpers needed during execution.
  */
 
+import { ExecutionLifecycleHooks } from 'n8n-core';
 import type {
 	AiEvent,
 	ExecutionStatus,
@@ -12,15 +13,22 @@ import type {
 	IDataObject,
 	INodeTypes,
 	IRunExecutionData,
+	IWorkflowBase,
 	IWorkflowExecuteAdditionalData,
+	WorkflowExecuteMode,
 } from 'n8n-workflow';
 
 import type { TemporalCredentialTypes } from '../credentials/credential-types';
+import type { WorkflowDefinition } from '../types/activity-types';
 
 export interface BuildAdditionalDataOptions {
 	credentialsHelper: ICredentialsHelper;
 	credentialTypes: TemporalCredentialTypes;
 	nodeTypes: INodeTypes;
+	/** Workflow definition for execution lifecycle hooks */
+	workflowData: WorkflowDefinition;
+	/** Execution mode */
+	mode?: WorkflowExecuteMode;
 	executionId?: string;
 	userId?: string;
 	/** Optional variables to inject into workflow expressions */
@@ -38,14 +46,37 @@ export function buildAdditionalData(
 ): IWorkflowExecuteAdditionalData {
 	const {
 		credentialsHelper,
+		workflowData,
+		mode = 'integrated',
 		executionId = generateExecutionId(),
 		userId = 'temporal-worker',
 		variables = {},
 	} = options;
 
+	// Convert WorkflowDefinition to IWorkflowBase for hooks
+	const workflowBase: IWorkflowBase = {
+		id: workflowData.id,
+		name: workflowData.name,
+		nodes: workflowData.nodes,
+		connections: workflowData.connections,
+		settings: workflowData.settings,
+		staticData: workflowData.staticData as IDataObject | undefined,
+		active: false,
+		isArchived: false,
+		activeVersionId: null,
+		createdAt: new Date(),
+		updatedAt: new Date(),
+	};
+
+	// Create execution lifecycle hooks (required by WorkflowExecute)
+	const hooks = new ExecutionLifecycleHooks(mode, executionId, workflowBase);
+
 	return {
 		// === Required helpers ===
 		credentialsHelper,
+
+		// === Execution lifecycle hooks ===
+		hooks,
 
 		// === Execution identifiers ===
 		executionId,

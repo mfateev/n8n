@@ -14,11 +14,23 @@
  * 4. Loop continues until complete or Wait node
  */
 
-import { proxyLocalActivities, sleep } from '@temporalio/workflow';
+import type { Sinks } from '@temporalio/workflow';
+import { proxyLocalActivities, proxySinks, sleep } from '@temporalio/workflow';
 
 // Import only TYPES from our package (no runtime imports)
 import type { ExecuteWorkflowStepInput, ExecuteWorkflowStepOutput } from '../types/activity-types';
 import type { ExecuteN8nWorkflowInput, ExecuteN8nWorkflowOutput } from '../types/workflow-types';
+
+// Sink interface for completion tracking (must match worker-side definition)
+// Extends Sinks (Record<string, Sink>) to satisfy type constraints
+interface CompletionTrackerSinks extends Sinks {
+	completionTracker: {
+		trackCompletion(status: 'success' | 'failure' | 'error'): void;
+	};
+}
+
+// Proxy sinks for completion tracking (no-op if not injected)
+const { completionTracker } = proxySinks<CompletionTrackerSinks>();
 
 // Type definition for the activities interface
 interface Activities {
@@ -85,13 +97,17 @@ export async function executeN8nWorkflow(
 
 		// Check for completion
 		if (result.complete) {
+			// Notify completion tracker sink (for exit-on-complete mode)
+			const status = result.error ? 'error' : 'success';
+			completionTracker.trackCompletion(status);
+
 			return {
 				success: !result.error,
 				data: result.finalOutput,
 				error: result.error,
 				runExecutionData:
 					runExecutionData as unknown as ExecuteN8nWorkflowOutput['runExecutionData'],
-				status: result.error ? 'error' : 'success',
+				status,
 			};
 		}
 
