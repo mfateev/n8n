@@ -1,0 +1,40 @@
+{
+	"name": "Code Node Test Workflow",
+	"nodes": [
+		{
+			"id": "trigger-1",
+			"name": "Manual Trigger",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"parameters": {}
+		},
+		{
+			"id": "code-transform",
+			"name": "Transform Data",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [200, 0],
+			"parameters": {
+				"mode": "runOnceForAllItems",
+				"jsCode": "// Transform input items\nconst items = $input.all();\nreturn items.map(item => ({\n  json: {\n    original: item.json,\n    transformed: true,\n    sum: (item.json.a || 0) + (item.json.b || 0),\n    processed: true\n  }\n}));"
+			}
+		}
+	],
+	"connections": {
+		"Manual Trigger": {
+			"main": [
+				[
+					{
+						"node": "Transform Data",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}

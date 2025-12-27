@@ -1,0 +1,40 @@
+{
+	"name": "Code Node Each Item Test Workflow",
+	"nodes": [
+		{
+			"id": "trigger-1",
+			"name": "Manual Trigger",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"parameters": {}
+		},
+		{
+			"id": "code-each",
+			"name": "Process Each Item",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [200, 0],
+			"parameters": {
+				"mode": "runOnceForEachItem",
+				"jsCode": "// Process each item individually\nreturn {\n  json: {\n    originalValue: $input.item.json.value,\n    doubled: ($input.item.json.value || 0) * 2,\n    itemProcessed: true\n  }\n};"
+			}
+		}
+	],
+	"connections": {
+		"Manual Trigger": {
+			"main": [
+				[
+					{
+						"node": "Process Each Item",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
