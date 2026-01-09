@@ -1,5 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
 
+import type { WorkflowDefinition } from '../../src/types/activity-types';
 import { buildAdditionalData } from '../../src/utils/additional-data';
 
 describe('buildAdditionalData', () => {
@@ -20,11 +21,19 @@ describe('buildAdditionalData', () => {
 		getKnownTypes: jest.fn().mockReturnValue({}),
 	};
 
+	const mockWorkflowData: WorkflowDefinition = {
+		id: 'test-workflow-1',
+		name: 'Test Workflow',
+		nodes: [],
+		connections: {},
+	};
+
 	it('should build additional data with all required properties', () => {
 		const additionalData = buildAdditionalData({
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 			executionId: 'test-execution-123',
 			userId: 'test-user',
 		});
@@ -40,6 +49,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		expect(additionalData.executionId).toBeDefined();
@@ -51,6 +61,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		await expect(
@@ -63,6 +74,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		// Should not throw
@@ -74,6 +86,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		// Should not throw
@@ -85,6 +98,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		const result = await additionalData.getRunExecutionData?.('some-id');
@@ -97,6 +111,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 			variables,
 		});
 
@@ -108,6 +123,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		expect(additionalData.variables).toEqual({});
@@ -118,6 +134,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		const status = additionalData.getRunnerStatus?.('javascript');
@@ -132,6 +149,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		await expect(
@@ -160,6 +178,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		// Should not throw
@@ -178,6 +197,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		expect(additionalData.restApiUrl).toBe('');
@@ -193,6 +213,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		const secretsHelpers = (additionalData as unknown as { secretsHelpers: unknown })
@@ -212,6 +233,7 @@ describe('buildAdditionalData', () => {
 			credentialsHelper: mockCredentialsHelper as never,
 			credentialTypes: mockCredentialTypes as never,
 			nodeTypes: mockNodeTypes as never,
+			workflowData: mockWorkflowData,
 		});
 
 		expect(additionalData.userId).toBe('temporal-worker');

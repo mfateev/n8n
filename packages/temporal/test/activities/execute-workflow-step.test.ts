@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 import { createRunExecutionData, NodeApiError, NodeOperationError } from 'n8n-workflow';
 import type { INode, ITaskData } from 'n8n-workflow';
 
+import type { WorkflowDefinition } from '../../src/types/activity-types';
 import { buildAdditionalData } from '../../src/utils/additional-data';
 import { serializeError, deserializeError } from '../../src/utils/error-serializer';
 import {
@@ -10,6 +11,13 @@ import {
 	initializeWorkerContext,
 	type WorkerContext,
 } from '../../src/worker/context';
+
+const mockWorkflowData: WorkflowDefinition = {
+	id: 'test-workflow-1',
+	name: 'Test Workflow',
+	nodes: [],
+	connections: {},
+};
 
 describe('executeWorkflowStep Activity', () => {
 	describe('Error Serialization', () => {
@@ -101,6 +109,7 @@ describe('executeWorkflowStep Activity', () => {
 				credentialsHelper: mockCredentialsHelper as never,
 				credentialTypes: mockCredentialTypes as never,
 				nodeTypes: mockNodeTypes as never,
+				workflowData: mockWorkflowData,
 				executionId: 'test-execution-123',
 				userId: 'test-user',
 			});
@@ -131,6 +140,7 @@ describe('executeWorkflowStep Activity', () => {
 				credentialsHelper: mockCredentialsHelper as never,
 				credentialTypes: mockCredentialTypes as never,
 				nodeTypes: mockNodeTypes as never,
+				workflowData: mockWorkflowData,
 			});
 
 			expect(additionalData.executionId).toBeDefined();
@@ -158,6 +168,7 @@ describe('executeWorkflowStep Activity', () => {
 				credentialsHelper: mockCredentialsHelper as never,
 				credentialTypes: mockCredentialTypes as never,
 				nodeTypes: mockNodeTypes as never,
+				workflowData: mockWorkflowData,
 			});
 
 			await expect(

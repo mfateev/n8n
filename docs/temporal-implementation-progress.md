@@ -13,7 +13,7 @@ This document tracks the progress of implementing the Temporal integration as de
 | Phase 3: Basic Execution | ✅ Complete | 2025-12-26 | 2025-12-26 |
 | Phase 4: HTTP & Credentials | ✅ Complete | 2025-12-26 | 2025-12-26 |
 | Phase 5: Control Flow & Wait | ✅ Complete | 2025-12-26 | 2025-12-26 |
-| Phase 6: Binary Data & CLI | ⏳ In Progress | 2025-12-26 | - |
+| Phase 6: Binary Data & CLI | ✅ Complete | 2025-12-26 | 2025-12-26 |
 
 ## Phase 1: Package Foundation
 
@@ -98,12 +98,12 @@ This document tracks the progress of implementing the Temporal integration as de
 | 6.2 | E2E test: Binary data | ✅ Complete | Integration test for binary data flow with HTTP Request node downloading images, validates binary data availability in subsequent nodes |
 | 6.3 | E2E test: Code node | ✅ Complete | Integration test for Code node JavaScript execution with runOnceForAllItems and runOnceForEachItem modes, validates input data access and transformation |
 | 6.4 | CLI entry point | ✅ Complete | CLI skeleton with oclif: bin/temporal-n8n.js, base command, worker/workflow command structure |
-| 6.5 | Worker start command | ⏳ Pending | |
-| 6.6 | Workflow run command | ⏳ Pending | |
-| 6.7 | Workflow start command | ⏳ Pending | |
-| 6.8 | Status/result commands | ⏳ Pending | |
-| 6.9 | Logging and observability | ⏳ Pending | |
-| 6.10 | README and documentation | ⏳ Pending | |
+| 6.5 | Worker start command | ✅ Complete | Full implementation with config loading, flag overrides, graceful shutdown |
+| 6.6 | Workflow run command | ✅ Complete | Full implementation: load workflow JSON, connect to Temporal, start execution, wait for result, display output with JSON mode support |
+| 6.7 | Workflow start command | ✅ Complete | Full implementation: load workflow JSON, connect to Temporal, start async execution, return workflow ID and run ID immediately without waiting |
+| 6.8 | Status/result commands | ✅ Complete | Full implementation: workflow status (describe execution), workflow result (get result with --wait flag for running workflows) |
+| 6.9 | Logging and observability | ✅ Complete | Created Logger utility with configurable levels, updated worker with structured logging, updated activity with logging, CLI supports log level via config |
+| 6.10 | README and documentation | ✅ Complete | Created comprehensive README.md with installation, CLI usage, configuration, architecture overview, and MVP limitations; Created docs/configuration.md with detailed config reference |
 
 ---
 
@@ -1038,3 +1038,413 @@ temporal-n8n
 **Verification:**
 - `pnpm typecheck` - Passes
 - `pnpm lint` - Passes
+
+---
+
+#### Commit 6.5: Worker Start Command
+
+**Files Modified:**
+- `packages/temporal/src/cli/commands/worker/start.ts` - Full implementation of worker start command
+
+**Implementation Details:**
+
+The worker start command now fully implements:
+
+1. **Configuration Loading**:
+   - Loads configuration from JSON file via `loadConfig()`
+   - Supports both absolute and relative paths
+   - Validates JSON syntax and file existence
+
+2. **Flag Overrides**:
+   - `--task-queue, -q` - Override task queue from config
+   - `--concurrency` - Override max concurrent activity executions
+   - Verbose logging with `--verbose, -v` flag
+
+3. **Worker Initialization**:
+   - Calls `runWorker()` from worker module
+   - Passes temporal, credentials, and binaryData config
+   - Logs server address and namespace
+
+4. **Graceful Shutdown**:
+   - Handles SIGINT (Ctrl+C) and SIGTERM signals
+   - Calls worker shutdown() function
+   - Logs shutdown status and exits cleanly
+   - Handles shutdown errors with exit code 1
+
+**Usage Examples:**
+```bash
+# Start worker with config file
+temporal-n8n worker start --config ./config.json
+
+# Start with task queue override
+temporal-n8n worker start -c ./config.json --task-queue my-queue
+
+# Start with verbose logging and concurrency limit
+temporal-n8n worker start -c ./config.json -v --concurrency 5
+```
+
+**Verification:**
+- `pnpm typecheck` - Passes
+- `pnpm lint` - Passes (2025-12-26)
+
+---
+
+#### Commit 6.6: Workflow Run Command
+
+**Files Modified:**
+- `packages/temporal/src/cli/commands/workflow/run.ts` - Full implementation of workflow run command
+
+**Implementation Details:**
+
+The workflow run command fully implements:
+
+1. **Configuration Loading**:
+   - Loads configuration from JSON file via `loadConfig()`
+   - Supports both absolute and relative paths
+   - Validates JSON syntax and file existence
+
+2. **Workflow Loading**:
+   - Loads workflow definition from JSON file via `loadWorkflowFromFile()`
+   - Extracts nodes, connections, settings, staticData
+
+3. **Input Data Loading**:
+   - Loads optional input data from JSON file via `--input` flag
+   - Converts various input formats to `INodeExecutionData[]`:
+     - Array of `{ json: ... }` objects (passed through)
+     - Array of plain objects (wrapped in `{ json: ... }`)
+     - Single object (wrapped in array with `{ json: ... }`)
+
+4. **Temporal Client Connection**:
+   - Creates Temporal client via `createTemporalClient()`
+   - Uses configured address, namespace, and TLS settings
+   - Properly closes connection in finally block
+
+5. **Workflow Execution**:
+   - Starts workflow with `client.workflow.start('executeN8nWorkflow', ...)`
+   - Passes workflow definition, input data to args
+   - Waits for result via `handle.result()`
+   - Supports configurable timeout via `--timeout` flag (parsed to milliseconds)
+
+6. **Output Display**:
+   - Standard mode: Displays execution status, errors, output data
+   - JSON mode (`--json`): Outputs raw JSON result for scripting
+   - Error handling with proper exit codes
+
+7. **Flag Support**:
+   - `--workflow, -w` - Path to workflow JSON file (required)
+   - `--input, -i` - Path to input data JSON file
+   - `--timeout, -t` - Execution timeout (e.g., "5m", "1h")
+   - `--task-queue, -q` - Override task queue from config
+   - `--workflow-id` - Custom workflow execution ID
+   - `--json` - Output result as JSON only
+   - `--config, -c` - Path to config file (from base)
+   - `--verbose, -v` - Enable verbose logging (from base)
+
+**Usage Examples:**
+```bash
+# Run workflow and wait for result
+temporal-n8n workflow run --workflow ./my-workflow.json
+
+# Run with input data
+temporal-n8n workflow run -w ./workflow.json --input ./data.json
+
+# Run with custom timeout
+temporal-n8n workflow run -w ./workflow.json --timeout 5m
+
+# Run with JSON output for scripting
+temporal-n8n workflow run -w ./workflow.json --json
+
+# Run with custom task queue
+temporal-n8n workflow run -w ./workflow.json --task-queue my-queue
+```
+
+**Verification:**
+- `pnpm typecheck` - Passes
+- `pnpm lint` - Passes (2025-12-26)
+
+---
+
+#### Commit 6.7: Workflow Start Command (Async)
+
+**Files Modified:**
+- `packages/temporal/src/cli/commands/workflow/start.ts` - Full implementation of async workflow start command
+
+**Implementation Details:**
+
+The workflow start command implements non-blocking workflow execution:
+
+1. **Configuration Loading**:
+   - Loads configuration from JSON file via `loadConfig()`
+   - Supports both absolute and relative paths
+   - Validates JSON syntax and file existence
+
+2. **Workflow Loading**:
+   - Loads workflow definition from JSON file via `loadWorkflowFromFile()`
+   - Extracts nodes, connections, settings, staticData
+
+3. **Input Data Loading**:
+   - Loads optional input data from JSON file via `--input` flag
+   - Converts various input formats to `INodeExecutionData[]`:
+     - Array of `{ json: ... }` objects (passed through)
+     - Array of plain objects (wrapped in `{ json: ... }`)
+     - Single object (wrapped in array with `{ json: ... }`)
+
+4. **Temporal Client Connection**:
+   - Creates Temporal client via `createTemporalClient()`
+   - Uses configured address, namespace, and TLS settings
+   - Properly closes connection in finally block
+
+5. **Workflow Start (Non-Blocking)**:
+   - Starts workflow with `client.workflow.start('executeN8nWorkflow', ...)`
+   - Does NOT wait for result (unlike `workflow run` command)
+   - Returns immediately after workflow is queued
+
+6. **Output Display**:
+   - Standard mode: Displays workflow ID, run ID, and helpful status command
+   - JSON mode (`--json`): Outputs workflowId and runId for scripting
+   - Error handling with proper exit codes
+
+7. **Flag Support**:
+   - `--workflow, -w` - Path to workflow JSON file (required)
+   - `--input, -i` - Path to input data JSON file
+   - `--task-queue, -q` - Override task queue from config
+   - `--workflow-id` - Custom workflow execution ID
+   - `--json` - Output result as JSON only
+   - `--config, -c` - Path to config file (from base)
+   - `--verbose, -v` - Enable verbose logging (from base)
+
+**Key Difference from `workflow run`:**
+- `workflow start` returns immediately with workflow ID and run ID
+- `workflow run` blocks until the workflow completes and returns the result
+- Both commands use the same workflow loading and input processing logic
+
+**Usage Examples:**
+```bash
+# Start workflow asynchronously (returns immediately)
+temporal-n8n workflow start --workflow ./my-workflow.json
+
+# Start with input data
+temporal-n8n workflow start -w ./workflow.json --input ./data.json
+
+# Start with JSON output for scripting
+temporal-n8n workflow start -w ./workflow.json --json
+
+# Start with custom workflow ID
+temporal-n8n workflow start -w ./workflow.json --workflow-id my-custom-id
+```
+
+**Verification:**
+- `pnpm typecheck` - Passes
+- `pnpm lint` - Passes (2025-12-26)
+
+---
+
+#### Commit 6.8: Workflow Status and Result Commands
+
+**Files Modified:**
+- `packages/temporal/src/cli/commands/workflow/status.ts` - Full implementation of workflow status command
+- `packages/temporal/src/cli/commands/workflow/result.ts` - Full implementation of workflow result command
+
+**Implementation Details:**
+
+**Workflow Status Command:**
+
+1. **Configuration Loading**:
+   - Loads configuration from JSON file via `loadConfig()`
+   - Supports both absolute and relative paths
+
+2. **Temporal Client Connection**:
+   - Creates Temporal client via `createTemporalClient()`
+   - Uses configured address, namespace, and TLS settings
+   - Properly closes connection in finally block
+
+3. **Workflow Description**:
+   - Gets workflow handle via `client.workflow.getHandle(workflowId)`
+   - Calls `handle.describe()` to get workflow execution details
+   - Returns: workflowId, runId, status, taskQueue, startTime, closeTime, historyLength
+
+4. **Output Display**:
+   - Standard mode: Displays status information in human-readable format
+   - JSON mode (`--json`): Outputs full status object for scripting
+   - Error handling with proper exit codes
+
+5. **Flag Support**:
+   - `--workflow-id` - Workflow execution ID (required)
+   - `--json` - Output as JSON only
+   - `--config, -c` - Path to config file (from base)
+   - `--verbose, -v` - Enable verbose logging (from base)
+
+**Workflow Result Command:**
+
+1. **Configuration Loading**:
+   - Loads configuration from JSON file via `loadConfig()`
+   - Supports both absolute and relative paths
+
+2. **Temporal Client Connection**:
+   - Creates Temporal client via `createTemporalClient()`
+   - Uses configured address, namespace, and TLS settings
+   - Properly closes connection in finally block
+
+3. **Running Workflow Handling**:
+   - Without `--wait`: Checks status first, returns error if workflow still running
+   - With `--wait`: Displays "Waiting for workflow to complete..." and blocks until done
+
+4. **Result Retrieval**:
+   - Calls `handle.result()` to get workflow execution result
+   - Returns: success, status, data, error (if failed), runExecutionData
+
+5. **Output Display**:
+   - Standard mode: Displays status, execution status, errors, and output data
+   - JSON mode (`--json`): Outputs full result object for scripting
+   - Error handling with proper exit codes
+
+6. **Flag Support**:
+   - `--workflow-id` - Workflow execution ID (required)
+   - `--wait` - Wait for workflow to complete if still running
+   - `--json` - Output as JSON only
+   - `--config, -c` - Path to config file (from base)
+   - `--verbose, -v` - Enable verbose logging (from base)
+
+**Usage Examples:**
+```bash
+# Get workflow status
+temporal-n8n workflow status --workflow-id my-workflow-123
+
+# Get workflow status as JSON
+temporal-n8n workflow status --workflow-id my-workflow-123 --json
+
+# Get workflow result (fails if still running)
+temporal-n8n workflow result --workflow-id my-workflow-123
+
+# Get workflow result (wait if running)
+temporal-n8n workflow result --workflow-id my-workflow-123 --wait
+
+# Get workflow result as JSON
+temporal-n8n workflow result --workflow-id my-workflow-123 --json
+```
+
+**Verification:**
+- `pnpm typecheck` - Passes
+- `pnpm lint` - Passes (2025-12-26)
+
+---
+
+#### Commit 6.9: Logging and Observability
+
+**Files Created:**
+- `packages/temporal/src/utils/logger.ts` - Structured logger utility with configurable levels
+- `packages/temporal/test/utils/logger.test.ts` - 31 unit tests for logger functionality
+
+**Files Modified:**
+- `packages/temporal/src/worker/worker.ts` - Updated to use structured logging throughout initialization and shutdown
+- `packages/temporal/src/activities/execute-workflow-step.ts` - Added logging for workflow step execution (start, wait, complete, error)
+- `packages/temporal/src/cli/commands/worker/start.ts` - Pass logging config to runWorker, support --verbose flag for debug level
+- `packages/temporal/src/index.ts` - Export logger utilities
+
+**Logger Features:**
+1. **Log Levels**: debug, info, warn, error with configurable threshold
+2. **Output Formats**: Text (human-readable) or JSON (machine-parseable)
+3. **Structured Context**: Optional key-value context included in log messages
+4. **Child Loggers**: Create child loggers with nested prefixes (e.g., `Worker:Activity`)
+5. **Singleton Pattern**: Global logger accessible via `getLogger()`
+6. **Environment Variables**: LOG_LEVEL and LOG_FORMAT for runtime configuration
+
+**WorkerBootstrapConfig Addition:**
+```typescript
+export interface WorkerBootstrapConfig {
+  temporal: TemporalWorkerConfig;
+  credentials: CredentialStoreConfig;
+  binaryData?: BinaryDataConfig;
+  logging?: LoggingConfig;  // NEW
+}
+```
+
+**Log Output Examples:**
+```
+# Text format (default)
+2025-12-26T12:00:00.000Z INFO  [Worker] Starting initialization
+2025-12-26T12:00:00.100Z INFO  [Worker] Loading credentials {"path":"./credentials.json"}
+2025-12-26T12:00:00.200Z DEBUG [Worker] Credentials loaded
+2025-12-26T12:00:01.000Z INFO  [Worker] Worker started {"taskQueue":"n8n-workflows","identity":"n8n-worker-12345"}
+
+# JSON format
+{"timestamp":"2025-12-26T12:00:00.000Z","level":"info","prefix":"Worker","message":"Starting initialization"}
+```
+
+**Test Coverage:**
+- Log level filtering (debug suppressed at info level, etc.)
+- Text and JSON output formats
+- Timestamp and prefix inclusion
+- Context object serialization
+- Child logger prefix inheritance
+- Singleton behavior (getLogger)
+- initializeLogger and setLogLevel functions
+- Environment variable configuration
+
+**Verification:**
+- `pnpm typecheck` - Passes
+- `pnpm lint` - Passes
+- `pnpm test logger.test.ts` - 31 tests passing
+- `pnpm test` - 187 total tests passing (2025-12-26)
+
+---
+
+#### Commit 6.10: README and Documentation
+
+**Files Created:**
+- `packages/temporal/README.md` - Comprehensive package documentation
+- `packages/temporal/docs/configuration.md` - Detailed configuration reference
+
+**README.md Contents:**
+1. **Features**: Overview of durable execution, node support, binary data, Wait node, CLI, credentials
+2. **Quick Start**: Step-by-step setup guide with configuration examples
+3. **CLI Commands**: All worker and workflow commands with usage examples
+4. **Configuration**: TypeScript interface and example configurations
+5. **Binary Data**: S3 and filesystem configuration with IAM role support
+6. **Credentials**: JSON file format and supported credential types
+7. **Supported Nodes**: Compatibility table with limitations
+8. **Architecture**: Mermaid sequence diagram and component overview
+9. **Development**: Build, test, and development commands
+10. **Current Limitations**: MVP scope and unsupported features
+11. **Troubleshooting**: Common issues and solutions
+
+**Configuration Guide Contents:**
+1. **Temporal Connection**: Basic and full configuration with all fields
+2. **TLS Configuration**: Temporal Cloud and mTLS setup
+3. **Credentials**: File format and supported credential types (API key, OAuth2, HTTP header/query, Basic auth)
+4. **Binary Data**: Filesystem and S3 modes with IAM and S3-compatible services
+5. **Execution**: Activity timeout and retry policy
+6. **Logging**: Log levels and output formats
+7. **Example Configurations**: Local dev, production, Temporal Cloud, LocalStack
+
+**Verification:**
+- `pnpm typecheck` - Passes
+- `pnpm lint` - Passes (via pre-commit hook)
+
+---
+
+### Phase 6 Complete (2025-12-26)
+
+All Phase 6 commits have been completed. The Binary Data & CLI implementation includes:
+
+1. **Binary Data Service** - TemporalBinaryDataHelper with S3 and filesystem support
+2. **Binary Data E2E Test** - Integration test for HTTP Request with binary response
+3. **Code Node E2E Test** - Integration test for JavaScript execution
+4. **CLI Entry Point** - oclif-based CLI skeleton with command structure
+5. **Worker Start Command** - Full implementation with config loading and graceful shutdown
+6. **Workflow Run Command** - Blocking execution with result waiting
+7. **Workflow Start Command** - Async execution returning immediately
+8. **Status/Result Commands** - Query workflow status and results
+9. **Logging** - Structured logger with configurable levels and formats
+10. **Documentation** - Comprehensive README and configuration guide
+
+**Total Tests:** 187 unit tests passing
+
+**Phase 6 Deliverables:**
+- S3-backed binary data storage for distributed workers
+- E2E tests validating binary data flow and Code node execution
+- `temporal-n8n` CLI with worker and workflow commands
+- Structured logging with configurable levels
+- Complete package documentation
+
+**All 6 phases of the Temporal integration MVP are now complete.**

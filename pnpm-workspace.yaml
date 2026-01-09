@@ -4,6 +4,7 @@ packages:
   - packages/frontend/**
   - packages/extensions/**
   - packages/testing/**
+  - poc/*
 
 catalog:
   '@azure/identity': 4.13.0
